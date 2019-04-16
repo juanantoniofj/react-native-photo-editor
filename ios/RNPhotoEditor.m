@@ -1,4 +1,7 @@
 
+#import <AssetsLibrary/AssetsLibrary.h>
+@import Photos;
+
 #import "RNPhotoEditor.h"
 
 @implementation RNPhotoEditor
@@ -18,9 +21,30 @@ RCTResponseSenderBlock _onCancelEditing = nil;
     if (_onDoneEditing == nil) return;
     
     // Save image.
-    [UIImagePNGRepresentation(image) writeToFile:_editImagePath atomically:YES];
-    
-    _onDoneEditing(@[]);
+    __block PHObjectPlaceholder *assetPlaceholder = nil;
+    [[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
+        PHAssetChangeRequest *changeRequest = [PHAssetChangeRequest creationRequestForAssetFromImage:image];
+        assetPlaceholder = changeRequest.placeholderForCreatedAsset;
+    } completionHandler:^(BOOL success, NSError *error) {
+        if (success) {
+            NSString *id = assetPlaceholder.localIdentifier;
+            PHFetchResult* assetResult = [PHAsset fetchAssetsWithLocalIdentifiers:@[id] options:nil];
+            PHAsset *asset = [assetResult firstObject];
+            [[PHImageManager defaultManager] requestImageDataForAsset:asset
+                                                              options:nil
+                                                        resultHandler:^(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *info) {
+                                                            NSURL *fileUrl = [info objectForKey:@"PHImageFileURLKey"];
+                                                            if (fileUrl) {
+                                                                _onDoneEditing(@[[NSNull null], fileUrl.relativePath]);
+                                                            } else {
+                                                                NSLog(@"Error retrieving image filePath, heres whats available: %@", info);
+                                                            }
+                                                        }];
+
+        } else {
+            NSLog(@"something wrong");
+        }
+    }];
 }
 
 - (void)canceledEditing {
