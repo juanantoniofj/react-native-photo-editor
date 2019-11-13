@@ -29,18 +29,19 @@ RCTResponseSenderBlock _onCancelEditing = nil;
         if (success) {
             NSString *id = assetPlaceholder.localIdentifier;
             PHFetchResult* assetResult = [PHAsset fetchAssetsWithLocalIdentifiers:@[id] options:nil];
+            
             PHAsset *asset = [assetResult firstObject];
-            [[PHImageManager defaultManager] requestImageDataForAsset:asset
-                                                              options:nil
-                                                        resultHandler:^(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *info) {
-                                                            NSURL *fileUrl = [info objectForKey:@"PHImageFileURLKey"];
-                                                            if (fileUrl) {
-                                                                _onDoneEditing(@[[NSNull null], fileUrl.relativePath]);
-                                                            } else {
-                                                                NSLog(@"Error retrieving image filePath, heres whats available: %@", info);
-                                                            }
-                                                        }];
+            PHContentEditingInputRequestOptions *editOptions = [[PHContentEditingInputRequestOptions alloc] init];
 
+            [asset requestContentEditingInputWithOptions:editOptions completionHandler:^(PHContentEditingInput *contentEditingInput, NSDictionary *info) {
+                if (contentEditingInput.fullSizeImageURL) {
+                    NSURL *fileUrl = contentEditingInput.fullSizeImageURL;
+                    _onDoneEditing(@[[NSNull null], fileUrl.relativePath]);
+                } else {
+                    NSLog(@"Error retrieving image filePath, heres whats available: %@", info);
+                }
+
+            }];
         } else {
             NSLog(@"something wrong");
         }
